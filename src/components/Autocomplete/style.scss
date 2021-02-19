@@ -15,7 +15,32 @@
   font-size: 18px;
   font-weight: 600;
 }
+.input-field {
+  position: relative;
+  width: 100%;
+  width: -webkit-fill-available;
 
+  outline: none;
+  color: black;
+  border: none;
+  /* border-bottom: 2px solid grey; */
+  height: 40px;
+  font-size: 16px;
+  border-radius: 4px;
+  padding-left: 8px;
+  /* padding: 0px 8px 0px 8px; */
+  /* margin: 4px 0; */
+  /* display: grid */
+  /* width: 100%; */
+  border: 2px solid #0050c8;
+  &:focus-within {
+    /* border: 1px solid #0050c8; */
+    border: 2px solid #ff7f50;
+  }
+  &::placeholder {
+    font-size: 14px;
+  }
+}
 li {
   padding: 8px;
   &:hover {
@@ -40,6 +65,7 @@ li {
   padding: 0px;
   border-radius: 4px;
   z-index: 1;
+  color: black;
   &.no-suggestions {
     padding: 8px;
     background: whitesmoke;

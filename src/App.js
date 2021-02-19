@@ -1,234 +1,344 @@
 import axios from 'axios';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-// import createPlotlyComponent from 'react-plotly.js/factory';
-import './App.css';
-import Autocomplete from './components/Autocomplete/index';
+import React, { useEffect, useRef, useState } from 'react';
+import Plot from 'react-plotly.js';
+import { useHistory } from 'react-router-dom';
+import './App.scss';
+import { ReactComponent as EmptyState } from './assets/svgs/empty.svg';
+import AutocompleteComponent from './components/Autocomplete/AutocompleteComponent';
 import { Button } from './components/Button';
-// import RadarChart from './components/RadarChart';
+import Loader from './components/Loader';
 
-function App(props) {
-  const Plotly = { data: 'mike' };
-  // const Plot = createPlotlyComponent(Plotly);
-  // console.log(Plot, 'PLOT');
+const App = () => {
+  let initialFirstTown = 'berlin';
+  let initialSecondTown = 'london';
+  const metricNames = [
+    'Housing',
+    'Healthcare',
+    'Internet Access',
+    'Safety',
+    'Education',
+    'Cost of Living',
+  ];
   const autocompleteRef = useRef(null);
+  const history = useHistory();
   const TOWN_SUGGESTION_URL = 'https://api.teleport.org/api/cities/';
   const TOWN_METRICS_URL = 'https://api.teleport.org/api/urban_areas/';
-  // const BASE_URL = 'https://api.teleport.org/api/urban_areas/';
-
   const dataLimit = 10;
-
   const [cityMetrics, setCityMetrics] = useState([]);
+  const [firstInput, setFirstInput] = useState('berlin');
+  const [secondInput, setSecondInput] = useState('london');
   const [loading, setLoading] = useState(false);
-  const [town, setTown] = useState({ firstTown: '', secondTown: '' });
-  const [loadingFirstTown, setLoadingFirstTown] = useState(false);
-  const [loadingSecondTown, setLoadingSecondTown] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [loadingFirstSuggestionMenu, setLoadingFirstSuggestionMenu] = useState(false);
+  const [loadingSecondSuggestionMenu, setLoadingSecondSuggestionMenu] = useState(false);
+  const [showFirstSuggestionMenu, setShowFirstSuggestionMenu] = useState(false);
+  const [showSecondSuggestionMenu, setShowSecondSuggestionMenu] = useState(false);
+  // const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [activeFirstMenu, setActiveFirstMenu] = useState(0);
+  const [activeSecondMenu, setActiveSecondMenu] = useState(0);
   const [filteredSuggestions, setFilteredSuggestions] = useState(null);
-  // const [values, setValues] = useState({
-  //   city: '',
-  //   country: '',
-  //   // activeSuggestion: 0,
-  //   filteredSuggestions: [],
-  //   // showSuggestions: false,
-  // });
-  const [userInput, setUserInput] = useState(null);
+  const [userData, setUserData] = useState({ firstInput: '', secondInput: '' });
+  const [firstData, setFirstData] = useState([]);
+  const [secondData, setSecondData] = useState([]);
+  const [error, setError] = useState('');
 
-  const fetchTownSuggestions = useCallback(
-    async (searchPhrase) => {
-      searchPhrase = town?.firstTown || town?.secondTown;
-      await axios
-        .get(`${TOWN_SUGGESTION_URL}?search=${searchPhrase}&limit=${dataLimit}`)
-        .then((res) => {
-          setLoadingFirstTown(false);
-          setLoadingSecondTown(false);
-          const cityInfo = res.data?._embedded[
-            'city:search-results'
-          ][0]?.matching_alternate_names?.map((el) => el.name);
-          const filtered = cityInfo?.filter(
-            (suggestion) => suggestion?.toLowerCase().indexOf(searchPhrase?.toLowerCase()) > -1
-          );
-          setShowSuggestions(true);
-          setActiveSuggestion(0);
-          setFilteredSuggestions(filtered);
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    },
-    [town?.firstTown, town?.secondTown]
-  );
-
-  const onTextChange = (e) => {};
-
-  const onItemSelected = (e) => {
-    // e.stopPropagation();
-    e.preventDefault();
-    setTown({
-      [e.target.name]: e.currentTarget.innerText,
-    });
-    setShowSuggestions(false);
-    setActiveSuggestion(0);
-    setFilteredSuggestions([]);
-  };
-
-  const onKeyDown = (e) => {
-    if (e.keyCode === 13 && filteredSuggestions) {
-      setShowSuggestions(false);
-      setActiveSuggestion(0);
-      setTown({
-        [e.target.name]: filteredSuggestions[activeSuggestion],
-      });
-    } else if (e.keyCode === 38) {
-      if (activeSuggestion === 0) {
-        return;
-      }
-      setActiveSuggestion(activeSuggestion - 1);
-    }
-    // User pressed the down arrow, increment the index
-    else if (e.keyCode === 40) {
-      if (activeSuggestion - 1 === filteredSuggestions?.length) {
-        return;
-      }
-      setActiveSuggestion(activeSuggestion + 1);
-    }
-  };
-  const handleSubmit = (e, userInput) => {
-    // setUserInput(values);
-    // setValues({
-    //   city: '',
-    //   country: '',
-    //   activeSuggestion: 0,
-    //   filteredSuggestions: [],
-    //   showSuggestions: false,
-    // });
-    e.preventDefault();
-  };
-  console.log(userInput);
-
-  const getCities = useCallback(async (e, searchPhrase) => {
-    e.preventDefault();
+  const fetchSuggestions = async (searchPhrase) => {
     await axios
-      .get(`${TOWN_SUGGESTION_URL}?search=${values?.city}`)
+      .get(`${TOWN_SUGGESTION_URL}?search=${searchPhrase}&limit=${dataLimit}`)
       .then((res) => {
-        const cityInfo = res.data;
-        // setData({ cityInfo });
+        const cityInfo = res.data?._embedded[
+          'city:search-results'
+        ][0]?.matching_alternate_names?.map((el) => el.name);
+        const filtered = cityInfo?.filter(
+          (suggestion) => suggestion?.toLowerCase().indexOf(searchPhrase?.toLowerCase()) > -1
+        );
+        setLoadingFirstSuggestionMenu(false);
+        setLoadingSecondSuggestionMenu(false);
+        setActiveFirstMenu(0);
+        setActiveSecondMenu(0);
+        setFilteredSuggestions(filtered);
       })
       .catch((error) => {
         console.log(error);
       });
-    // const apiCall = await fetch(`https://api.teleport.org/api/cities/?`);
-  }, []);
+  };
+  const firstInputHandler = (e) => {
+    e.preventDefault();
+    setLoadingFirstSuggestionMenu(true);
+    setLoadingSecondSuggestionMenu(false);
+    setShowSecondSuggestionMenu(false);
+    setShowFirstSuggestionMenu(true);
+    setFirstInput(e.currentTarget.value);
+    fetchSuggestions(firstInput);
+  };
+  const secondInputHandler = (e) => {
+    e.preventDefault();
+    setLoadingFirstSuggestionMenu(false);
+    setLoadingSecondSuggestionMenu(true);
+    setShowFirstSuggestionMenu(false);
+    setShowSecondSuggestionMenu(true);
+    setSecondInput(e.currentTarget.value);
+    fetchSuggestions(secondInput);
+  };
 
-  useEffect(() => {
-    setLoading(true);
-    const searchValue = town?.firstTown || town?.secondTown;
-    const fetchData = async () => {
-      await axios
-        .get(`${TOWN_METRICS_URL}slug:${searchValue}/scores/`)
-        .then((data) => {
-          setCityMetrics(data);
-          setLoading(false);
-        })
-        .catch((err) => console(err));
-    };
-    fetchData();
-  }, [town]);
-  console.log(cityMetrics, 'cityMetrics');
-  // const preLoadData = useCallback(async () => {
-  //   const res = axios.get(`${TOWN_SUGGESTION_URL}`);
-  //   const dataRequest = res.data;
-  //   setData(dataRequest);
-  // }, []);
-  // console.log(data, 'dtat');
-  //The data are loaded initially
-  // useEffect(() => {
-  //   preLoadData();
-  // }, [preLoadData]);
-
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const handleClickOutside = (e) => {
-    const { current: autoComponent } = autocompleteRef;
-    if (autoComponent && !autoComponent.contains(e.target)) {
-      setShowSuggestions(false);
+  const onItemSelectedFromFirstMenu = (value) => {
+    value = filteredSuggestions;
+    if (value) {
+      setShowFirstSuggestionMenu(false);
+      setActiveFirstMenu(0);
+      setFirstInput(value[activeFirstMenu]);
+      setFilteredSuggestions([]);
     }
   };
+  const onItemSelectedFromSecondMenu = (value) => {
+    value = filteredSuggestions;
+    if (value) {
+      setShowSecondSuggestionMenu(false);
+      setActiveSecondMenu(0);
+      setSecondInput(value[activeSecondMenu]);
+      setFilteredSuggestions([]);
+    }
+  };
+
+  const onKeyDownForFirstMenu = (e) => {
+    if (e.keyCode === 13 && filteredSuggestions) {
+      e.preventDefault();
+      setShowFirstSuggestionMenu(false);
+      setActiveFirstMenu(0);
+      setFirstInput(filteredSuggestions[activeFirstMenu]);
+    } else if (e.keyCode === 38) {
+      if (activeFirstMenu === 0) {
+        return;
+      }
+      setActiveFirstMenu(activeFirstMenu - 1);
+    }
+    // User pressed the down arrow, increment the index
+    else if (e.keyCode === 40) {
+      if (activeFirstMenu - 1 === filteredSuggestions?.length) {
+        return;
+      }
+      setActiveFirstMenu(activeFirstMenu + 1);
+    }
+  };
+  const onKeyDownForSecondMenu = (e) => {
+    if (e.keyCode === 13 && filteredSuggestions) {
+      e.preventDefault();
+      setShowSecondSuggestionMenu(false);
+      setActiveSecondMenu(0);
+      setSecondInput(filteredSuggestions[activeSecondMenu]);
+    } else if (e.keyCode === 38) {
+      if (activeSecondMenu === 0) {
+        return;
+      }
+      setActiveSecondMenu(activeSecondMenu - 1);
+    }
+    // User pressed the down arrow, increment the index
+    else if (e.keyCode === 40) {
+      if (activeSecondMenu - 1 === filteredSuggestions?.length) {
+        return;
+      }
+      setActiveSecondMenu(activeSecondMenu + 1);
+    }
+  };
+
+  const getCityMetrics = async () => {
+    setLoading(true);
+    console.log(firstInput, secondInput, 'here');
+    const firstTownResponse = await axios.get(
+      `${TOWN_METRICS_URL}slug:${firstInput.toLowerCase() || initialFirstTown}/scores/`
+    );
+    const secondTownResponse = await axios.get(
+      `${TOWN_METRICS_URL}slug:${secondInput.toLowerCase() || initialSecondTown}/scores/`
+    );
+    console.log(firstTownResponse, 'first');
+    console.log(secondTownResponse, 'second');
+
+    axios
+      .all([firstTownResponse, secondTownResponse])
+      .then(
+        axios.spread((...allData) => {
+          setFirstData(allData[0]);
+          setSecondData(allData[1]);
+
+          let firstDataFilteredArray = firstData?.data?.categories.filter((item) => {
+            return metricNames.indexOf(item.name) > -1;
+          });
+          let secondDataFilteredArray = secondData?.data?.categories.filter((item) => {
+            return metricNames.indexOf(item.name) > -1;
+          });
+          firstDataFilteredArray = { records: firstDataFilteredArray };
+          secondDataFilteredArray = { records: secondDataFilteredArray };
+          console.log(firstDataFilteredArray, 'hhhhh');
+          // const firstDataMetrics = firstDataFilteredArray?.records.map((item) => item.name);
+          // console.log(firstDataMetrics, 'map undefiended');
+          const firstTownScores = firstDataFilteredArray?.records.map(
+            (item) => item.score_out_of_10
+          );
+          const firstTownColorCodes = firstDataFilteredArray?.records.map((item) => item.color);
+          // const secondDataMetrics = secondDataFilteredArray?.records.map((item) => item.name);
+          const secondTownScores = secondDataFilteredArray?.records.map(
+            (item) => item.score_out_of_10
+          );
+          const secondTownColorCodes = secondDataFilteredArray?.records.map((item) => item.color);
+          setCityMetrics([
+            {
+              type: 'scatterpolar',
+              r: firstTownScores,
+              theta: metricNames,
+              fill: 'toself',
+              name: firstInput || initialFirstTown,
+              marker: {
+                color: firstTownColorCodes,
+              },
+              showlegend: true,
+              line: { color: '#011FFD' },
+              mode: 'lines+markers',
+            },
+            {
+              type: 'scatterpolar',
+              r: secondTownScores,
+              theta: metricNames,
+              fill: 'toself',
+              name: secondInput || initialSecondTown,
+              marker: {
+                color: secondTownColorCodes,
+              },
+              showlegend: true,
+              mode: 'lines+markers',
+              line: { color: '#00C2BA' },
+            },
+          ]);
+          // setFirstInput('');
+          // setSecondInput('');
+          setLoading(false);
+        })
+      )
+      .catch((error) => {
+        setError(error.message);
+      });
+  };
+
+  useEffect(() => {
+    const formData = window.localStorage.getItem('user-values');
+    const savedValues = JSON.parse(formData);
+    setUserData(savedValues.userData);
+    setFirstInput(savedValues.firstInput);
+    setSecondInput(savedValues.secondInput);
+  }, []);
+
+  useEffect(() => {
+    const valueToSave = { ...userData, firstInput, secondInput };
+    window.localStorage.setItem('user-values', JSON.stringify(valueToSave));
+  });
+
+  //The data are loaded initially
+  useEffect(() => {
+    getCityMetrics();
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutsideForFirstMenu);
+    document.addEventListener('mousedown', handleClickOutsideForSecondMenu);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutsideForFirstMenu);
+      document.removeEventListener('mousedown', handleClickOutsideForSecondMenu);
+    };
+  }, []);
+
+  const handleClickOutsideForFirstMenu = (e) => {
+    const { current: autoComponent } = autocompleteRef;
+    if (autoComponent && !autoComponent.contains(e.target)) {
+      setShowFirstSuggestionMenu(false);
+    }
+  };
+  const handleClickOutsideForSecondMenu = (e) => {
+    const { current: autoComponent } = autocompleteRef;
+    if (autoComponent && !autoComponent.contains(e.target)) {
+      setShowSecondSuggestionMenu(false);
+    }
+  };
+  if (!loading) {
+    <Loader fullPage />;
+  }
+  console.log(error);
   return (
     <div className="App">
-      <form className="wrapper" onSubmit={getCities} autocomplete="off">
+      <form className="wrapper" autocomplete="off" onSubmit={getCityMetrics}>
         <h1 className="title-text">City Radar App</h1>
-        <div ref={autocompleteRef}>
-          <Autocomplete
+        <div ref={autocompleteRef} className="input1">
+          <AutocompleteComponent
             label="Enter town 1:"
-            className="input1"
-            name="firstTown"
-            value={town?.firstTown || ''}
-            onChange={(e) => {
-              e.preventDefault();
-              setLoadingFirstTown(true);
-              setLoadingSecondTown(false);
-              setTown({ [e.target.name]: e.currentTarget.value });
-              fetchTownSuggestions();
-            }}
+            name="firstInput"
+            value={firstInput || ''}
+            fetchSuggestions={firstInputHandler}
             placeholder="e.g. Berlin"
             suggestion={filteredSuggestions}
-            showSuggestions={showSuggestions}
-            activeSuggestion={activeSuggestion}
-            onItemSelected={(e) => onItemSelected(e)}
-            onKeyDown={onKeyDown}
-            loading={loadingFirstTown}
+            showSuggestions={showFirstSuggestionMenu}
+            activeSuggestion={activeFirstMenu}
+            onItemSelected={(value) => onItemSelectedFromFirstMenu(value)}
+            onKeyDown={onKeyDownForFirstMenu}
+            loading={loadingFirstSuggestionMenu}
           />
         </div>
         <div className="space1" />
-
-        <Button type="submit" className="btn1" fullWidth bgColor="#FF7F50" textColor="black">
-          submit
-        </Button>
-        <div className="middle" />
-
-        <div ref={autocompleteRef}>
-          <Autocomplete
+        <div ref={autocompleteRef} className="input2">
+          <AutocompleteComponent
             label="Enter town 2:"
-            className="input2"
-            name="secondTown"
-            value={town?.secondTown || ''}
-            onChange={(e) => {
-              e.preventDefault();
-              setLoadingFirstTown(false);
-              setLoadingSecondTown(true);
-              setTown({ [e.target.name]: e.currentTarget.value });
-              fetchTownSuggestions();
-            }}
+            name="secondInput"
+            value={secondInput || ''}
+            fetchSuggestions={secondInputHandler}
             placeholder="e.g. Dortmund"
             suggestion={filteredSuggestions}
-            showSuggestions={showSuggestions}
-            activeSuggestion={activeSuggestion}
-            onItemSelected={(e) => onItemSelected(e)}
-            onKeyDown={onKeyDown}
-            loading={loadingSecondTown}
+            showSuggestions={showSecondSuggestionMenu}
+            activeSuggestion={activeSecondMenu}
+            onItemSelected={(value) => onItemSelectedFromSecondMenu(value)}
+            onKeyDown={onKeyDownForSecondMenu}
+            loading={loadingSecondSuggestionMenu}
           />
         </div>
         <div className="space2" />
 
-        <Button type="submit" className="btn2" fullWidth bgColor="#FF7F50" textColor="black">
+        <Button
+          type="submit"
+          className="btn"
+          fullWidth
+          textColor="#fff"
+          bgColor="#FF7F50"
+          disabled={!firstInput || !secondInput}
+        >
           submit
         </Button>
-        {/* <Button className="right" type="submit">
-          Compare
-        </Button> */}
+        <div className="space3" />
 
         <div className="content">
-          {/* <RadarChart data={cityMetrics} layout={layout} loading={loading} /> */}
+          {!cityMetrics.length ? (
+            <div className="empty-state">
+              <EmptyState />
+              <p>Oh no! No data was returned for your search.</p>
+            </div>
+          ) : (
+            <Plot
+              style={{ display: 'flex', justifyContent: 'center' }}
+              className="plot"
+              data={cityMetrics}
+              layout={{
+                polar: {
+                  radialaxis: {
+                    visible: true,
+                    range: [0, 10],
+                    showgrid: true,
+                    tickmode: 'auto',
+                    textcolor: '#000',
+                  },
+                },
+              }}
+              loading={loading}
+            />
+          )}
         </div>
       </form>
     </div>
   );
-}
+};
 
 export default App;
